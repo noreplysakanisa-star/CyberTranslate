@@ -1,4 +1,4 @@
 streamlit
 pymupdf
-deep-translator
+deepl
 pillow
