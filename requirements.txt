@@ -2,4 +2,4 @@ streamlit
 pymupdf
 deepl
 pillow
-reportlab
+weasyprint
