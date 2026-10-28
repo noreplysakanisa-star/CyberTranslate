@@ -5,10 +5,8 @@ import io
 from PIL import Image
 import time
 import os
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
+import base64
+from weasyprint import HTML
 
 # ==========================================
 # 1. Page Configuration & Advanced CSS
@@ -23,7 +21,6 @@ st.set_page_config(
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Poppins:wght@300;500;700&display=swap');
-    
     @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes pulseGlow { 0% { box-shadow: 0 0 5px rgba(56, 189, 248, 0.2); } 50% { box-shadow: 0 0 20px rgba(56, 189, 248, 0.8); } 100% { box-shadow: 0 0 5px rgba(56, 189, 248, 0.2); } }
     @keyframes scanline { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
@@ -58,9 +55,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# 2. Sidebar Dashboard
-# ==========================================
 with st.sidebar:
     st.markdown("### 🖥️ System Status")
     status_placeholder = st.empty()
@@ -70,67 +64,67 @@ with st.sidebar:
     log_placeholder.code("Waiting for input...\n> _")
 
 # ==========================================
-# 3. PDF Generation Function
+# دالة إنشاء PDF بتصميم احترافي (مطابق للملف)
 # ==========================================
-def create_translated_pdf(doc, translated_texts):
-    buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=letter)
-    width, height = letter
+def create_designed_pdf(doc, translated_texts):
+    html_content = """
+    <html>
+    <head>
+    <meta charset="utf-8">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+        body { font-family: 'Cairo', sans-serif; direction: rtl; text-align: right; margin: 0; padding: 0; background-color: #ffffff; }
+        .page { page-break-after: always; padding: 40px; box-sizing: border-box; height: 100vh; display: flex; flex-direction: column; }
+        .title { color: #1e3a8a; font-size: 28pt; font-weight: bold; margin-bottom: 10px; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; }
+        .subtitle { color: #64748b; font-size: 14pt; margin-bottom: 20px; }
+        .image-container { text-align: center; margin-bottom: 20px; }
+        .image-container img { max-width: 100%; max-height: 40vh; object-fit: contain; border-radius: 10px; }
+        .text-container { font-size: 12pt; line-height: 1.8; color: #334155; flex-grow: 1; }
+        .footer { text-align: center; font-size: 10pt; color: #94a3b8; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+        .highlight { color: #0ea5e9; font-weight: bold; }
+    </style>
+    </head>
+    <body>
+    """
     
-    font_path = "Cairo.ttf" 
-    pdfmetrics.registerFont(TTFont('Cairo', font_path))
-
     for i, page in enumerate(doc):
-        pix = page.get_pixmap(dpi=120)
-        img_path = f"temp_page_{i}.png"
-        pix.save(img_path)
+        # 1. استخراج الصورة
+        pix = page.get_pixmap(dpi=150)
+        img_bytes = pix.tobytes("png")
+        img_base64 = base64.b64encode(img_bytes).decode('utf-8')
         
-        img_width = width - 80
-        img_height = (pix.height / pix.width) * img_width
-        if img_height > height * 0.5: 
-            img_height = height * 0.5
-            img_width = (pix.width / pix.height) * img_height
-            
-        c.drawImage(img_path, (width - img_width)/2, height - img_height - 30, width=img_width, height=img_height)
-        os.remove(img_path)
-
-        text_object = c.beginText()
-        text_object.setTextOrigin(40, height - img_height - 50)
-        text_object.setFont("Cairo", 12)
+        # 2. محاولة استخراج العنوان (أول سطر في النص الإنجليزي)
+        text_english = page.get_text("text")
+        lines = text_english.strip().split('\n')
+        title = lines[0].strip() if lines else f"Page {i+1}"
         
-        words = translated_texts[i].split()
-        line = ""
-        y_position = height - img_height - 50
+        # 3. تجهيز النص المترجم
+        text_arabic = translated_texts[i]
         
-        for word in words:
-            if pdfmetrics.stringWidth(line + " " + word, "Cairo", 12) < width - 80:
-                line += word + " "
-            else:
-                text_object.textLine(line)
-                line = word + " "
-                y_position -= 18
-                if y_position < 40:
-                    c.drawText(text_object)
-                    c.showPage()
-                    c.setFont("Cairo", 12)
-                    text_object = c.beginText()
-                    text_object.setTextOrigin(40, height - 40)
-                    y_position = height - 40
-
-        if line:
-            text_object.textLine(line)
-        c.drawText(text_object)
+        # 4. بناء الصفحة
+        html_content += f"""
+        <div class="page">
+            <div class="title">{title}</div>
+            <div class="image-container">
+                <img src="data:image/png;base64,{img_base64}">
+            </div>
+            <div class="text-container">
+                {text_arabic}
+            </div>
+            <div class="footer">Translated Page {i+1} | Developed by Eng. Motaz Al-Kade</div>
+        </div>
+        """
         
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(40, height - 20, f"Translated Page {i+1} | Developed by Eng. Motaz Al-Kade")
-        c.showPage()
-
-    c.save()
-    buffer.seek(0)
-    return buffer
+    html_content += "</body></html>"
+    
+    pdf_buffer = io.BytesIO()
+    HTML(string=html_content).write_pdf(pdf_buffer)
+    pdf_buffer.seek(0)
+    
+    return pdf_buffer
 
 # ==========================================
-# 4. Main App Logic
+# 3. Main App Logic
 # ==========================================
 st.markdown("<h1 style='text-align: center;'>🛡️ CyberTranslate AI</h1>", unsafe_allow_html=True)
 st.markdown("<h3 style='text-align: center; font-weight: 400 !important;'>Secure PDF Parsing & Intelligent Translation Engine</h3>", unsafe_allow_html=True)
@@ -144,7 +138,6 @@ if uploaded_file is not None:
         st.stop()
         
     try:
-        # إشعار منبثق (Toast) فاخر
         st.toast("🔐 Secure connection established.", icon="🛡️")
         time.sleep(0.5)
         
@@ -157,9 +150,7 @@ if uploaded_file is not None:
         st.success(f"✅ File loaded securely! Total Pages: {len(doc)}")
         log_placeholder.code(f"> File: {uploaded_file.name}\n> Size: {len(file_bytes)/1024:.1f} KB\n> Pages: {len(doc)}\n> Status: Ready")
         
-        # ==========================================
-        # النافذة المنبثقة الفاخرة (Fake Modal Overlay)
-        # ==========================================
+        # Overlay
         overlay_placeholder = st.empty()
         overlay_placeholder.markdown(f"""
         <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
@@ -174,7 +165,6 @@ if uploaded_file is not None:
         </div>
         """, unsafe_allow_html=True)
         
-        # تنفيذ العمليات
         translated_pages = {}
         progress_bar = st.progress(0)
         status_text = st.empty()
@@ -199,23 +189,23 @@ if uploaded_file is not None:
             progress_bar.progress((page_num + 1) / len(doc))
             time.sleep(0.5)
             
-        # إغلاق النافذة المنبثقة بعد انتهاء العمل
         overlay_placeholder.empty()
         status_text.success("✅ Translation Complete! System Idle.")
         log_placeholder.code("> Status: Success\n> Engine: Idle\n> Awaiting next command...")
-        
-        # إشعار منبثق (Toast) للنجاح
         st.toast("✅ Translation Completed Successfully!", icon="🎉")
         
-        with st.spinner("📦 Packaging secure PDF..."):
-            pdf_buffer = create_translated_pdf(doc, translated_pages)
+        # إنشاء PDF وعرض زر التحميل
+        with st.spinner("📦 Packaging beautifully formatted PDF..."):
+            pdf_buffer = create_designed_pdf(doc, translated_pages)
             st.download_button(
-                label="📥 Download Translated PDF",
+                label="📥 Download Designed PDF (Arabic)",
                 data=pdf_buffer,
-                file_name="Translated_CyberDoc.pdf",
+                file_name="Translated_Designed_Doc.pdf",
                 mime="application/pdf",
-                use_container_width=True
+                use_container_width=True,
+                type="primary"
             )
+            st.info("💡 **Tip:** This PDF is generated with the original images and has perfect Arabic text formatting.")
         
         st.markdown("---")
         st.markdown("### 📊 Translation Results")
@@ -237,7 +227,7 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"❌ Critical System Error: {str(e)}")
         if 'overlay_placeholder' in locals():
-            overlay_placeholder.empty() # إغلاق النافذة في حال حدوث خطأ
+            overlay_placeholder.empty()
 
 html_card = """<div class="pro-credit-box"><div class="pro-title">💻 System Architecture & Development</div><div class="pro-name">Eng. Motaz Al-Kade</div><div class="pro-role">Cyber Security Engineer | AI & Data Science Enthusiast</div><a href="https://wa.me/967739507539" target="_blank" class="pro-btn"><span class="pro-icon">📱</span>WhatsApp: +967 739 507 539</a><a href="https://t.me/Motazalkade" target="_blank" class="pro-btn"><span class="pro-icon">✈️</span>Telegram: @Motazalkade</a></div>"""
 st.markdown(html_card, unsafe_allow_html=True)
