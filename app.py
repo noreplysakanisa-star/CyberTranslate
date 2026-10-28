@@ -5,8 +5,12 @@ import io
 from PIL import Image
 import time
 import os
-import base64
-from weasyprint import HTML
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+import arabic_reshaper
+from bidi.algorithm import get_display
 
 # ==========================================
 # 1. Page Configuration & Advanced CSS
@@ -64,64 +68,73 @@ with st.sidebar:
     log_placeholder.code("Waiting for input...\n> _")
 
 # ==========================================
-# دالة إنشاء PDF بتصميم احترافي (مطابق للملف)
+# دالة إنشاء PDF مع دعم اللغة العربية (Reshaping)
 # ==========================================
-def create_designed_pdf(doc, translated_texts):
-    html_content = """
-    <html>
-    <head>
-    <meta charset="utf-8">
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
-        body { font-family: 'Cairo', sans-serif; direction: rtl; text-align: right; margin: 0; padding: 0; background-color: #ffffff; }
-        .page { page-break-after: always; padding: 40px; box-sizing: border-box; height: 100vh; display: flex; flex-direction: column; }
-        .title { color: #1e3a8a; font-size: 28pt; font-weight: bold; margin-bottom: 10px; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; }
-        .subtitle { color: #64748b; font-size: 14pt; margin-bottom: 20px; }
-        .image-container { text-align: center; margin-bottom: 20px; }
-        .image-container img { max-width: 100%; max-height: 40vh; object-fit: contain; border-radius: 10px; }
-        .text-container { font-size: 12pt; line-height: 1.8; color: #334155; flex-grow: 1; }
-        .footer { text-align: center; font-size: 10pt; color: #94a3b8; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
-        .highlight { color: #0ea5e9; font-weight: bold; }
-    </style>
-    </head>
-    <body>
-    """
+def create_translated_pdf(doc, translated_texts):
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    width, height = letter
     
+    # مسار الخط المحلي (Cairo.ttf)
+    font_path = "Cairo.ttf" 
+    pdfmetrics.registerFont(TTFont('Cairo', font_path))
+
     for i, page in enumerate(doc):
-        # 1. استخراج الصورة
-        pix = page.get_pixmap(dpi=150)
-        img_bytes = pix.tobytes("png")
-        img_base64 = base64.b64encode(img_bytes).decode('utf-8')
+        # 1. إضافة الصورة
+        pix = page.get_pixmap(dpi=120)
+        img_path = f"temp_page_{i}.png"
+        pix.save(img_path)
         
-        # 2. محاولة استخراج العنوان (أول سطر في النص الإنجليزي)
-        text_english = page.get_text("text")
-        lines = text_english.strip().split('\n')
-        title = lines[0].strip() if lines else f"Page {i+1}"
+        img_width = width - 80
+        img_height = (pix.height / pix.width) * img_width
+        if img_height > height * 0.4: 
+            img_height = height * 0.4
+            img_width = (pix.width / pix.height) * img_height
+            
+        c.drawImage(img_path, (width - img_width)/2, height - img_height - 30, width=img_width, height=img_height)
+        os.remove(img_path)
+
+        # 2. معالجة النص العربي (تشكيل الحروف وقلب الاتجاه)
+        raw_text = translated_texts[i]
+        reshaped_text = arabic_reshaper.reshape(raw_text)
+        bidi_text = get_display(reshaped_text)
+
+        # 3. كتابة النص
+        text_object = c.beginText()
+        text_object.setTextOrigin(width - 40, height - img_height - 50) # البدء من اليمين
+        text_object.setFont("Cairo", 12)
         
-        # 3. تجهيز النص المترجم
-        text_arabic = translated_texts[i]
+        words = bidi_text.split()
+        line = ""
+        y_position = height - img_height - 50
         
-        # 4. بناء الصفحة
-        html_content += f"""
-        <div class="page">
-            <div class="title">{title}</div>
-            <div class="image-container">
-                <img src="data:image/png;base64,{img_base64}">
-            </div>
-            <div class="text-container">
-                {text_arabic}
-            </div>
-            <div class="footer">Translated Page {i+1} | Developed by Eng. Motaz Al-Kade</div>
-        </div>
-        """
+        for word in words:
+            if pdfmetrics.stringWidth(line + " " + word, "Cairo", 12) < width - 80:
+                line += word + " "
+            else:
+                text_object.textLine(line)
+                line = word + " "
+                y_position -= 18
+                if y_position < 40:
+                    c.drawText(text_object)
+                    c.showPage()
+                    c.setFont("Cairo", 12)
+                    text_object = c.beginText()
+                    text_object.setTextOrigin(width - 40, height - 40)
+                    y_position = height - 40
+
+        if line:
+            text_object.textLine(line)
+        c.drawText(text_object)
         
-    html_content += "</body></html>"
-    
-    pdf_buffer = io.BytesIO()
-    HTML(string=html_content).write_pdf(pdf_buffer)
-    pdf_buffer.seek(0)
-    
-    return pdf_buffer
+        # إضافة تذييل
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(40, height - 20, f"Translated Page {i+1} | Developed by Eng. Motaz Al-Kade")
+        c.showPage()
+
+    c.save()
+    buffer.seek(0)
+    return buffer
 
 # ==========================================
 # 3. Main App Logic
@@ -195,17 +208,17 @@ if uploaded_file is not None:
         st.toast("✅ Translation Completed Successfully!", icon="🎉")
         
         # إنشاء PDF وعرض زر التحميل
-        with st.spinner("📦 Packaging beautifully formatted PDF..."):
-            pdf_buffer = create_designed_pdf(doc, translated_pages)
+        with st.spinner("📦 Packaging formatted PDF..."):
+            pdf_buffer = create_translated_pdf(doc, translated_pages)
             st.download_button(
-                label="📥 Download Designed PDF (Arabic)",
+                label="📥 Download Translated PDF",
                 data=pdf_buffer,
-                file_name="Translated_Designed_Doc.pdf",
+                file_name="Translated_CyberDoc.pdf",
                 mime="application/pdf",
                 use_container_width=True,
                 type="primary"
             )
-            st.info("💡 **Tip:** This PDF is generated with the original images and has perfect Arabic text formatting.")
+            st.info("💡 **Tip:** The Arabic text in this PDF has been reshaped and formatted correctly.")
         
         st.markdown("---")
         st.markdown("### 📊 Translation Results")
