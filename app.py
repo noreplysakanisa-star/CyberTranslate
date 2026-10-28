@@ -23,23 +23,30 @@ st.set_page_config(
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Poppins:wght@300;500;700&display=swap');
+    
     @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes pulseGlow { 0% { box-shadow: 0 0 5px rgba(56, 189, 248, 0.2); } 50% { box-shadow: 0 0 20px rgba(56, 189, 248, 0.8); } 100% { box-shadow: 0 0 5px rgba(56, 189, 248, 0.2); } }
     @keyframes scanline { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
     @keyframes floatCard { 0% { transform: translateY(0px); } 50% { transform: translateY(-8px); } 100% { transform: translateY(0px); } }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
 
     .stApp { background: radial-gradient(circle at top right, #1e293b, #0f172a, #020617); font-family: 'Cairo', 'Poppins', sans-serif; color: #e2e8f0; }
     h1, h2, h3, h4 { font-family: 'Cairo', sans-serif !important; font-weight: 700 !important; color: #38bdf8 !important; text-shadow: 0 0 15px rgba(56, 189, 248, 0.3); }
     [data-testid="stSidebar"] { background-color: #0f172a !important; border-right: 1px solid #1e293b; }
+    
     .sys-status { background: rgba(30, 41, 59, 0.5); border: 1px solid #334155; border-radius: 10px; padding: 15px; margin-bottom: 15px; position: relative; overflow: hidden; }
     .sys-status::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(to bottom, transparent, rgba(56, 189, 248, 0.1), transparent); animation: scanline 3s linear infinite; }
     .status-dot { display: inline-block; width: 10px; height: 10px; background-color: #10b981; border-radius: 50%; margin-right: 10px; animation: pulseGlow 2s infinite; }
+    
     .stFileUploader { background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(10px); border: 2px dashed #38bdf8; border-radius: 15px; padding: 20px; transition: all 0.3s ease; }
     .stFileUploader:hover { border-color: #818cf8; box-shadow: 0 0 25px rgba(129, 140, 248, 0.5); }
+    
     .text-card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border-left: 5px solid #38bdf8; padding: 25px; border-radius: 12px; margin-top: 10px; box-shadow: 0 10px 40px 0 rgba(0, 0, 0, 0.4); line-height: 2; font-size: 16px; color: #f1f5f9; direction: rtl; text-align: right; animation: fadeInUp 0.8s ease-out forwards; }
+    
     .stTabs [data-baseweb="tab-list"] { gap: 10px; background-color: transparent; }
     .stTabs [data-baseweb="tab"] { background-color: #1e293b; border-radius: 8px; color: #94a3b8; padding: 10px 20px; border: 1px solid #334155; transition: all 0.3s; }
     .stTabs [aria-selected="true"] { background: linear-gradient(90deg, #38bdf8, #818cf8) !important; color: #0f172a !important; font-weight: bold; border: none; box-shadow: 0 0 15px rgba(56, 189, 248, 0.4); }
+    
     .stProgress > div > div > div > div { background-image: linear-gradient(to right, #38bdf8, #818cf8); animation: pulseGlow 2s infinite; }
     
     .pro-credit-box { background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95)); border: 2px solid rgba(56, 189, 248, 0.3); border-radius: 25px; padding: 40px 20px; margin: 60px auto; max-width: 700px; text-align: center; animation: floatCard 4s ease-in-out infinite; backdrop-filter: blur(15px); }
@@ -51,6 +58,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ==========================================
+# 2. Sidebar Dashboard
+# ==========================================
 with st.sidebar:
     st.markdown("### 🖥️ System Status")
     status_placeholder = st.empty()
@@ -59,12 +69,15 @@ with st.sidebar:
     log_placeholder = st.empty()
     log_placeholder.code("Waiting for input...\n> _")
 
+# ==========================================
+# 3. PDF Generation Function
+# ==========================================
 def create_translated_pdf(doc, translated_texts):
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=letter)
     width, height = letter
     
-    font_path = "Cairo.ttf" # تأكد من رفع هذا الملف إلى GitHub
+    font_path = "Cairo.ttf" 
     pdfmetrics.registerFont(TTFont('Cairo', font_path))
 
     for i, page in enumerate(doc):
@@ -116,6 +129,9 @@ def create_translated_pdf(doc, translated_texts):
     buffer.seek(0)
     return buffer
 
+# ==========================================
+# 4. Main App Logic
+# ==========================================
 st.markdown("<h1 style='text-align: center;'>🛡️ CyberTranslate AI</h1>", unsafe_allow_html=True)
 st.markdown("<h3 style='text-align: center; font-weight: 400 !important;'>Secure PDF Parsing & Intelligent Translation Engine</h3>", unsafe_allow_html=True)
 st.divider()
@@ -128,6 +144,7 @@ if uploaded_file is not None:
         st.stop()
         
     try:
+        # إشعار منبثق (Toast) فاخر
         st.toast("🔐 Secure connection established.", icon="🛡️")
         time.sleep(0.5)
         
@@ -140,6 +157,24 @@ if uploaded_file is not None:
         st.success(f"✅ File loaded securely! Total Pages: {len(doc)}")
         log_placeholder.code(f"> File: {uploaded_file.name}\n> Size: {len(file_bytes)/1024:.1f} KB\n> Pages: {len(doc)}\n> Status: Ready")
         
+        # ==========================================
+        # النافذة المنبثقة الفاخرة (Fake Modal Overlay)
+        # ==========================================
+        overlay_placeholder = st.empty()
+        overlay_placeholder.markdown(f"""
+        <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
+            <div style="background: linear-gradient(135deg, #0f172a, #1e293b); padding: 40px; border-radius: 20px; border: 2px solid #38bdf8; box-shadow: 0 0 50px rgba(56, 189, 248, 0.5); text-align: center; max-width: 500px; animation: floatCard 3s infinite;">
+                <div style="font-size: 50px; margin-bottom: 20px; animation: spin 2s linear infinite; display: inline-block;">⚙️</div>
+                <h2 style="color: #38bdf8; margin-bottom: 10px;">AI Engine Processing</h2>
+                <p style="color: #94a3b8;">Extracting data and translating securely...</p>
+                <div style="width: 100%; height: 10px; background: #334155; border-radius: 5px; overflow: hidden; margin-top: 20px;">
+                    <div style="width: 50%; height: 100%; background: linear-gradient(90deg, #38bdf8, #818cf8); animation: pulseGlow 1s infinite;"></div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # تنفيذ العمليات
         translated_pages = {}
         progress_bar = st.progress(0)
         status_text = st.empty()
@@ -164,8 +199,13 @@ if uploaded_file is not None:
             progress_bar.progress((page_num + 1) / len(doc))
             time.sleep(0.5)
             
+        # إغلاق النافذة المنبثقة بعد انتهاء العمل
+        overlay_placeholder.empty()
         status_text.success("✅ Translation Complete! System Idle.")
         log_placeholder.code("> Status: Success\n> Engine: Idle\n> Awaiting next command...")
+        
+        # إشعار منبثق (Toast) للنجاح
+        st.toast("✅ Translation Completed Successfully!", icon="🎉")
         
         with st.spinner("📦 Packaging secure PDF..."):
             pdf_buffer = create_translated_pdf(doc, translated_pages)
@@ -196,6 +236,8 @@ if uploaded_file is not None:
 
     except Exception as e:
         st.error(f"❌ Critical System Error: {str(e)}")
+        if 'overlay_placeholder' in locals():
+            overlay_placeholder.empty() # إغلاق النافذة في حال حدوث خطأ
 
 html_card = """<div class="pro-credit-box"><div class="pro-title">💻 System Architecture & Development</div><div class="pro-name">Eng. Motaz Al-Kade</div><div class="pro-role">Cyber Security Engineer | AI & Data Science Enthusiast</div><a href="https://wa.me/967739507539" target="_blank" class="pro-btn"><span class="pro-icon">📱</span>WhatsApp: +967 739 507 539</a><a href="https://t.me/Motazalkade" target="_blank" class="pro-btn"><span class="pro-icon">✈️</span>Telegram: @Motazalkade</a></div>"""
 st.markdown(html_card, unsafe_allow_html=True)
