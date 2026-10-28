@@ -2,4 +2,6 @@ streamlit
 pymupdf
 deepl
 pillow
-weasyprint
+reportlab
+arabic-reshaper
+python-bidi
