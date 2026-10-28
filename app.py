@@ -20,14 +20,12 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Poppins:wght@300;500;700&display=swap');
 
-    /* Main Background & Font */
     .stApp {
         background: radial-gradient(circle at top right, #1e293b, #0f172a, #020617);
         font-family: 'Cairo', 'Poppins', sans-serif;
         color: #e2e8f0;
     }
 
-    /* Headers Styling */
     h1, h2, h3, h4 {
         font-family: 'Cairo', sans-serif !important;
         font-weight: 700 !important;
@@ -35,7 +33,6 @@ st.markdown("""
         text-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
     }
 
-    /* File Uploader Styling */
     .stFileUploader {
         background: rgba(30, 41, 59, 0.6);
         backdrop-filter: blur(10px);
@@ -50,7 +47,6 @@ st.markdown("""
         box-shadow: 0 0 25px rgba(129, 140, 248, 0.5);
     }
 
-    /* Custom Card for Text */
     .text-card {
         background: rgba(30, 41, 59, 0.7);
         backdrop-filter: blur(12px);
@@ -66,7 +62,6 @@ st.markdown("""
         text-align: right;
     }
 
-    /* Tabs Styling */
     .stTabs [data-baseweb="tab-list"] {
         gap: 10px;
         background-color: transparent;
@@ -88,12 +83,10 @@ st.markdown("""
         box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
     }
 
-    /* Progress Bar Styling */
     .stProgress > div > div > div > div {
         background-image: linear-gradient(to right, #38bdf8, #818cf8);
     }
 
-    /* Luxury Credit Card */
     .credit-card {
         background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.9));
         border: 1px solid rgba(56, 189, 248, 0.3);
@@ -135,10 +128,6 @@ st.markdown("""
         box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
         transform: translateY(-2px);
     }
-    .contact-icon {
-        margin-right: 8px;
-        font-size: 18px;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -156,7 +145,6 @@ st.divider()
 uploaded_file = st.file_uploader("📂 Drop your PDF file here", type=["pdf"])
 
 if uploaded_file is not None:
-    # Read into memory (Cyber Security Best Practice - no disk writes)
     file_bytes = uploaded_file.read()
     
     try:
@@ -165,7 +153,6 @@ if uploaded_file is not None:
         
         translated_pages = {}
         
-        # Cyber-style progress bar
         st.markdown("### ⚙️ Processing Pipeline")
         progress_bar = st.progress(0)
         status_text = st.empty()
@@ -174,28 +161,30 @@ if uploaded_file is not None:
             status_text.text(f"🔍 Analyzing & Translating Page {page_num + 1}/{len(doc)}...")
             page = doc.load_page(page_num)
             
-            # 1. Extract Text
             text = page.get_text("text")
             
-            # 2. Translate (with error handling & chunking)
+            # --- الترجمة مع معالجة الأخطاء ---
             if text.strip():
+                translated_text = ""
                 try:
                     translator = GoogleTranslator(source='en', target='ar')
+                    max_chars = 4000 # تقليل الحجم لتجنب الحظر
                     
-                    # Chunking text if it's too long (API limits)
-                    max_chars = 4500
                     if len(text) > max_chars:
                         chunks = [text[i:i+max_chars] for i in range(0, len(text), max_chars)]
-                        translated_chunks = []
                         for chunk in chunks:
-                            translated_chunks.append(translator.translate(chunk))
-                            time.sleep(0.3) # Slight delay to prevent rate limiting
-                        translated_text = " ".join(translated_chunks)
+                            try:
+                                translated_text += translator.translate(chunk) + " "
+                                time.sleep(1.5) # تأخير ثانية ونصف بين كل طلب لتجنب الحظر
+                            except Exception:
+                                translated_text += "\n[⚠️ جزء من النص لم يترجم بسبب ضغط الخادم]\n"
                     else:
                         translated_text = translator.translate(text)
                         
-                except Exception as trans_err:
-                    translated_text = f"⚠️ [Translation Error: {str(trans_err)}]"
+                except Exception as e:
+                    # في حال فشل الترجمة تماماً، نعرض النص الأصلي كحل بديل
+                    if not translated_text:
+                        translated_text = f"<span style='color: #f87171;'>⚠️ Translation server is busy. Showing Original Text:</span><br><br>{text}"
             else:
                 translated_text = "(No readable text detected on this page. It might be an image-only page.)"
             
@@ -228,23 +217,11 @@ if uploaded_file is not None:
 
     except Exception as e:
         st.error(f"❌ Critical Error: Unable to process the file. Details: {str(e)}")
-        st.info("💡 Tip: Ensure the PDF is not password-protected or corrupted.")
 
 # ==========================================
-# 5. Luxury Credit & Contact Card
+# 5. Luxury Credit & Contact Card (Fixed HTML)
 # ==========================================
-st.markdown("""
-<div class='credit-card'>
-    <div class='credit-title'>💻 System Architecture & Development</div>
-    <div class='credit-name'>Eng. Motaz Al-Kade</div>
-    <p style='color: #94a3b8; margin-bottom: 20px;'>Cyber Security Engineer | AI & Data Science Enthusiast</p>
-    
-    <a href='https://wa.me/967739507539' target='_blank' class='contact-badge'>
-        <span class='contact-icon'>📱</span> WhatsApp: +967 739 507 539
-    </a>
-    
-    <a href='https://t.me/Motazalkade' target='_blank' class='contact-badge'>
-        <span class='contact-icon'>✈️</span> Telegram: @Motazalkade
-    </a>
-</div>
-""", unsafe_allow_html=True)
+# تم كتابة كود HTML هنا في سطر واحد متصل بدون أي مسافات بادئة لكي ينفذه المتصفح كتصميم
+credit_html = """<div class='credit-card'><div class='credit-title'>💻 System Architecture & Development</div><div class='credit-name'>Eng. Motaz Al-Kade</div><p style='color: #94a3b8; margin-bottom: 20px;'>Cyber Security Engineer | AI & Data Science Enthusiast</p><a href='https://wa.me/967739507539' target='_blank' class='contact-badge'>📱 WhatsApp: +967 739 507 539</a> <a href='https://t.me/Motazalkade' target='_blank' class='contact-badge'>✈️ Telegram: @Motazalkade</a></div>"""
+
+st.markdown(credit_html, unsafe_allow_html=True)
