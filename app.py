@@ -11,7 +11,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 # ==========================================
-# 1. Page Configuration & Advanced CSS (Cyber Animations)
+# 1. Page Configuration & Advanced CSS
 # ==========================================
 st.set_page_config(
     page_title="CyberTranslate AI | Motaz Al-Kade",
@@ -64,9 +64,8 @@ def create_translated_pdf(doc, translated_texts):
     c = canvas.Canvas(buffer, pagesize=letter)
     width, height = letter
     
-    # مسار الخط المحلي (الذي تم رفعه على GitHub)
-    font_path = "Amiri-Regular.ttf"
-    pdfmetrics.registerFont(TTFont('Amiri', font_path))
+    font_path = "Cairo.ttf" # تأكد من رفع هذا الملف إلى GitHub
+    pdfmetrics.registerFont(TTFont('Cairo', font_path))
 
     for i, page in enumerate(doc):
         pix = page.get_pixmap(dpi=120)
@@ -84,14 +83,14 @@ def create_translated_pdf(doc, translated_texts):
 
         text_object = c.beginText()
         text_object.setTextOrigin(40, height - img_height - 50)
-        text_object.setFont("Amiri", 12)
+        text_object.setFont("Cairo", 12)
         
         words = translated_texts[i].split()
         line = ""
         y_position = height - img_height - 50
         
         for word in words:
-            if pdfmetrics.stringWidth(line + " " + word, "Amiri", 12) < width - 80:
+            if pdfmetrics.stringWidth(line + " " + word, "Cairo", 12) < width - 80:
                 line += word + " "
             else:
                 text_object.textLine(line)
@@ -100,7 +99,7 @@ def create_translated_pdf(doc, translated_texts):
                 if y_position < 40:
                     c.drawText(text_object)
                     c.showPage()
-                    c.setFont("Amiri", 12)
+                    c.setFont("Cairo", 12)
                     text_object = c.beginText()
                     text_object.setTextOrigin(40, height - 40)
                     y_position = height - 40
